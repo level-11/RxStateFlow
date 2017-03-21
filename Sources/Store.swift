@@ -19,6 +19,8 @@ open class Store<State: StateObject> {
 
     fileprivate var middlewares = [Middlewares<State>]()
 
+    fileprivate let disposeBag = DisposeBag()
+    
     /// The current state stored in the store.
     public let state: Variable<State>
 
@@ -94,6 +96,15 @@ extension Store {
             state.react(to: event)
             middlewares.reversed().forEach { $0.middleware._after(event: event, state: state) }
         }
+    }
+
+    public func dispatch<O: ObservableType>(observable: O) where O.E: Event {
+        observable.subscribe(
+            onNext: { [unowned self] in self.dispatch(event: $0) },
+            onError: { [unowned self] in self.handleError(ErrorEvent.add($0)) },
+            onCompleted: nil,
+            onDisposed: nil)
+            .addDisposableTo(self.disposeBag)
     }
 
     /// Dispatches a command. This is the simplest way to dispatch an Event at a later point,
